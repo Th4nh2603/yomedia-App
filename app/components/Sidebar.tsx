@@ -3,12 +3,13 @@ import Icon from "../icons/Icons";
 import { NAV_ITEMS } from "../../constants";
 import { NavItem } from "../../types";
 import { useSession, signOut } from "next-auth/react";
-
+import { useRouter } from "next/navigation";
 interface SidebarProps {
   isOpen: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
+  const router = useRouter();
   const renderNavItems = (section: NavItem["section"]) => {
     return (
       <div className="mb-4">
@@ -19,7 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           {NAV_ITEMS.filter((item) => item.section === section).map((item) => (
             <li key={item.label}>
               <a
-                href="#"
+                onClick={() => router.push(item.icon)}
                 className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-md transition-colors duration-200 ${
                   item.label === "Dashboard"
                     ? "bg-slate-700 text-teal-400"
