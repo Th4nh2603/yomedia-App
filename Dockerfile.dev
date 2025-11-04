@@ -1,13 +1,17 @@
-FROM node:18
+# Dành cho development (hot reload)
+FROM node:18-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm install
 
-# Copy toàn bộ code (dù mount volume sẽ override)
 COPY . .
 
+# Dùng port 3000
 EXPOSE 3000
+
+# Bật hot reload
+ENV CHOKIDAR_USEPOLLING=true
 
 CMD ["npm", "run", "dev"]

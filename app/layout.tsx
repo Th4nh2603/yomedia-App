@@ -52,7 +52,9 @@ export default function RootLayout({
                 <Sidebar isOpen={isSidebarOpen} />
                 <div className="flex flex-col flex-1">
                   <Header toggleSidebar={toggleSidebar} />
-                  <main className="flex-1 overflow-y-auto p-6">{children}</main>
+                  <main className="flex-1 overflow-y-auto p-6 bg-slate-900">
+                    {children}
+                  </main>
                 </div>
               </div>
             )}

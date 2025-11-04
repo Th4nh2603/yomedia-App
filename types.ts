@@ -8,11 +8,20 @@ export interface DemoData {
   format: string;
   flight: string | null;
 }
-
+export interface FileData {
+  name: string;
+  type: "folder" | "file";
+  size?: number;
+  lastModified: string;
+  permissions: string;
+  owner: string;
+  group: string;
+}
 export type IconName =
   | "dashboard"
   | "manageDemo"
   | "buildDemo"
+  | "uploadDemo"
   | "manageTeam"
   | "contacts"
   | "invoices"
@@ -24,6 +33,7 @@ export type IconName =
   | "compress"
   | "barChart"
   | "menu"
+  | "folder"
   | "search"
   | "moon"
   | "bell"
@@ -37,6 +47,13 @@ export type IconName =
   | "chevronLeft"
   | "chevronRight"
   | "user"
+  | "copy"
+  | "image"
+  | "paperPlane"
+  | "reset"
+  | "link"
+  | "file"
+  | "externalLink"
   | "logout";
 
 export interface NavItem {
