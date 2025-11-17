@@ -24,7 +24,7 @@ export type IconName =
   | "uploadDemo"
   | "manageTeam"
   | "contacts"
-  | "invoices"
+  | "documentDemo"
   | "products"
   | "profile"
   | "task"

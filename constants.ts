@@ -7,13 +7,14 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Upload Demo", icon: "uploadDemo", section: "DATA" },
   { label: "Manage Team", icon: "manageTeam", section: "DATA" },
   { label: "Contacts Informal", icon: "contacts", section: "DATA" },
-  { label: "Invoices Balances", icon: "invoices", section: "DATA" },
+  { label: "Invoices Balances", icon: "documentDemo", section: "DATA" },
   { label: "Products", icon: "products", section: "PAGES" },
   { label: "Profile Form", icon: "profile", section: "PAGES" },
   { label: "Task", icon: "task", section: "PAGES" },
   { label: "Calendar", icon: "calendar", section: "PAGES" },
   { label: "FAQ Page", icon: "faq", section: "PAGES" },
   { label: "Compress", icon: "compress", section: "DESIGN" },
+  { label: "Document", icon: "documentDemo", section: "PAGES" },
   { label: "Bar Chart", icon: "barChart", section: "CHARTS" },
 ];
 
