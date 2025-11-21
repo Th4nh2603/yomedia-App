@@ -106,11 +106,10 @@ const BuildDemo: React.FC = () => {
   // ---- Reusable SelectInput ----
   const SelectInput: React.FC<{
     label: string;
-    value: string;
-    onChange: (v: string) => void;
-    options: string[];
-    placeholder?: string; // nếu có -> thêm option disabled
-  }> = ({ label, value, onChange, options, placeholder }) => (
+    options: (string | { label: string; value: string })[];
+    defaultValue: string;
+    isPlaceholder?: boolean;
+  }> = ({ label, options, defaultValue, isPlaceholder }) => (
     <div>
       <label
         htmlFor={label}
@@ -121,8 +120,7 @@ const BuildDemo: React.FC = () => {
       <select
         id={label}
         name={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        defaultValue={isPlaceholder ? "" : defaultValue}
         className="w-full pl-4 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
@@ -131,17 +129,26 @@ const BuildDemo: React.FC = () => {
           backgroundRepeat: "no-repeat",
         }}
       >
-        {placeholder && (
+        {isPlaceholder && (
           <option value="" disabled>
-            {placeholder}
+            {defaultValue}
           </option>
         )}
-        {/* Khi có placeholder, đừng render option trùng; còn lại render danh sách */}
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
+        {!isPlaceholder && <option value={defaultValue}>{defaultValue}</option>}
+        {options.map((opt) => {
+          if (typeof opt === "string") {
+            return (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            );
+          }
+          return (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          );
+        })}
       </select>
     </div>
   );
@@ -161,31 +168,24 @@ const BuildDemo: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <SelectInput
               label="Ad View"
-              value={adView}
-              onChange={setAdView}
               options={AD_VIEW_OPTIONS}
-              placeholder="Please select an option ..."
+              defaultValue="Please select an option ..."
+              isPlaceholder
             />
-
             <SelectInput
               label="Template"
-              value={template}
-              onChange={setTemplate}
-              options={["None", ...TEMPLATE_OPTIONS]}
+              options={TEMPLATE_OPTIONS}
+              defaultValue="None"
             />
-
             <SelectInput
               label="Ad Format"
-              value={adFormat}
-              onChange={setAdFormat}
-              options={["None", ...AD_FORMAT_OPTIONS]}
+              options={AD_FORMAT_OPTIONS}
+              defaultValue="None"
             />
-
             <SelectInput
               label="Logo"
-              value={logo}
-              onChange={setLogo}
-              options={["None", ...LOGO_OPTIONS]}
+              options={LOGO_OPTIONS}
+              defaultValue="None"
             />
 
             {/* SOURCE + ENV */}

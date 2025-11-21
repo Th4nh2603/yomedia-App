@@ -53,11 +53,15 @@ export type IconName =
   | "reset"
   | "link"
   | "file"
+  | "invoices"
   | "externalLink"
+  | "lock"
+  | "google"
   | "logout";
 
 export interface NavItem {
   label: string;
   icon: IconName;
   section: "MAIN" | "DATA" | "PAGES" | "DESIGN" | "CHARTS";
+  href: string; // 👈 thêm dòng này
 }

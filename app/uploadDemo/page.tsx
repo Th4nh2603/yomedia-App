@@ -6,6 +6,10 @@ import FileManager from "./FileManager";
 const UploadDemo: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // 💡 Đường dẫn SFTP hiện tại
+  const [currentPath, setCurrentPath] = useState<string>(".");
 
   const handleFileChange = (selectedFiles: FileList | null) => {
     if (selectedFiles) {
@@ -41,15 +45,65 @@ const UploadDemo: React.FC = () => {
     setFiles((prevFiles) => prevFiles.filter((file) => file.name !== fileName));
   };
 
-  const handleUpload = () => {
+  // const handleUpload = async () => {
+  //   if (files.length === 0) {
+  //     alert("Please select files to upload.");
+  //     return;
+  //   }
+
+  //   try {
+  //     const formData = new FormData();
+  //     files.forEach((file) => formData.append("files", file));
+  //     formData.append("path", currentPath); // 🔥 upload vào thư mục đang chọn
+
+  //     const res = await fetch("/api/sftp/upload", {
+  //       method: "POST",
+  //       body: formData,
+  //     });
+
+  //     const data = await res.json();
+  //     if (data.success) {
+  //       alert(`Upload thành công ${files.length} file(s) vào '${currentPath}'`);
+  //       setFiles([]);
+  //     } else {
+  //       alert("Upload lỗi: " + data.error);
+  //     }
+  //   } catch (err: any) {
+  //     console.error(err);
+  //     alert("Có lỗi khi upload: " + err.message);
+  //   }
+  // };
+  const handleUpload = async () => {
     if (files.length === 0) {
       alert("Please select files to upload.");
       return;
     }
-    alert(`Uploading ${files.length} file(s)...`);
-    // Here you would typically handle the file upload logic,
-    // e.g., using FormData and fetch/axios.
-    setFiles([]); // Clear files after "upload"
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+      formData.append("path", currentPath);
+
+      const res = await fetch("/api/sftp/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      console.log("upload response:", data); // 👈 log ra console
+
+      if (data.success) {
+        alert(`Upload thành công ${files.length} file(s) vào '${currentPath}'`);
+        setFiles([]);
+        // ✅ Trigger refresh FileManager
+        setReloadKey((prev) => prev + 1);
+      } else {
+        alert("Upload lỗi: " + data.error);
+      }
+    } catch (err: any) {
+      console.error("Upload fetch error:", err);
+      alert("Có lỗi khi upload: " + err.message);
+    }
   };
 
   const formatBytes = (bytes: number, decimals = 2) => {
@@ -64,10 +118,14 @@ const UploadDemo: React.FC = () => {
   return (
     <>
       <div className="bg-slate-800 rounded-lg shadow-lg p-6">
-        <div className="mb-8">
+        <div className="mb-2">
           <h1 className="text-2xl font-bold text-white">Upload Demo File</h1>
           <p className="text-sm text-slate-400 mt-1">
             Attach your demo files here to process them.
+          </p>
+          <p className="text-xs text-slate-500 mt-2">
+            Upload vào thư mục:{" "}
+            <span className="font-mono text-yellow-300">{currentPath}</span>
           </p>
         </div>
 
@@ -153,7 +211,13 @@ const UploadDemo: React.FC = () => {
           </div>
         )}
       </div>
-      <FileManager />
+
+      {/* Truyền currentPath xuống FileManager */}
+      <FileManager
+        currentPath={currentPath}
+        onPathChange={setCurrentPath}
+        reloadKey={reloadKey}
+      />
     </>
   );
 };

@@ -1,23 +1,93 @@
 import { DemoData, NavItem } from "./types";
 
+// export const NAV_ITEMS: NavItem[] = [
+//   { label: "Dashboard", icon: "dashboard", section: "MAIN" },
+//   { label: "Manage Demo", icon: "manageDemo", section: "DATA" },
+//   { label: "Build Demo", icon: "buildDemo", section: "DATA" },
+//   { label: "Upload Demo", icon: "uploadDemo", section: "DATA" },
+//   { label: "Manage Team", icon: "manageTeam", section: "DATA" },
+//   { label: "Contacts Informal", icon: "contacts", section: "DATA" },
+//   { label: "Invoices Balances", icon: "documentDemo", section: "DATA" },
+//   { label: "Products", icon: "products", section: "PAGES" },
+//   { label: "Profile Form", icon: "profile", section: "PAGES" },
+//   { label: "Task", icon: "task", section: "PAGES" },
+//   { label: "Calendar", icon: "calendar", section: "PAGES" },
+//   { label: "FAQ Page", icon: "faq", section: "PAGES" },
+//   { label: "Compress", icon: "compress", section: "DESIGN" },
+//   { label: "Document", icon: "documentDemo", section: "PAGES" },
+//   { label: "Bar Chart", icon: "barChart", section: "CHARTS" },
+// ];
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", icon: "dashboard", section: "MAIN" },
-  { label: "Manage Demo", icon: "manageDemo", section: "DATA" },
-  { label: "Build Demo", icon: "buildDemo", section: "DATA" },
-  { label: "Upload Demo", icon: "uploadDemo", section: "DATA" },
-  { label: "Manage Team", icon: "manageTeam", section: "DATA" },
-  { label: "Contacts Informal", icon: "contacts", section: "DATA" },
-  { label: "Invoices Balances", icon: "documentDemo", section: "DATA" },
-  { label: "Products", icon: "products", section: "PAGES" },
-  { label: "Profile Form", icon: "profile", section: "PAGES" },
-  { label: "Task", icon: "task", section: "PAGES" },
-  { label: "Calendar", icon: "calendar", section: "PAGES" },
-  { label: "FAQ Page", icon: "faq", section: "PAGES" },
-  { label: "Compress", icon: "compress", section: "DESIGN" },
-  { label: "Document", icon: "documentDemo", section: "PAGES" },
-  { label: "Bar Chart", icon: "barChart", section: "CHARTS" },
-];
+  // MAIN
+  { label: "Dashboard", icon: "dashboard", section: "MAIN", href: "/" },
 
+  // DATA
+  {
+    label: "Manage Demo",
+    icon: "manageDemo",
+    section: "DATA",
+    href: "/manageDemo",
+  },
+  {
+    label: "Build Demo",
+    icon: "buildDemo",
+    section: "DATA",
+    href: "/buildDemo",
+  },
+  {
+    label: "Upload Demo",
+    icon: "uploadDemo",
+    section: "DATA",
+    href: "/uploadDemo",
+  },
+  {
+    label: "Manage Team",
+    icon: "manageTeam",
+    section: "DATA",
+    href: "/manageTeam",
+  },
+  {
+    label: "Contacts Informal",
+    icon: "contacts",
+    section: "DATA",
+    href: "/contacts",
+  },
+  {
+    label: "Invoices Balances",
+    icon: "documentDemo",
+    section: "DATA",
+    href: "/invoices",
+  },
+
+  // PAGES
+  { label: "Products", icon: "products", section: "PAGES", href: "/products" },
+  {
+    label: "Profile Form",
+    icon: "profile",
+    section: "PAGES",
+    href: "/profile",
+  },
+  { label: "Task", icon: "task", section: "PAGES", href: "/task" },
+  { label: "Calendar", icon: "calendar", section: "PAGES", href: "/calendar" },
+  { label: "FAQ Page", icon: "faq", section: "PAGES", href: "/faq" },
+  {
+    label: "Document",
+    icon: "documentDemo",
+    section: "PAGES",
+    href: "/document",
+  },
+
+  // DESIGN
+  { label: "Compress", icon: "compress", section: "DESIGN", href: "/compress" },
+
+  // CHARTS
+  {
+    label: "Bar Chart",
+    icon: "barChart",
+    section: "CHARTS",
+    href: "/barChart",
+  },
+];
 export const MOCK_DATA: DemoData[] = [
   {
     id: 1,

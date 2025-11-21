@@ -1,15 +1,20 @@
 import { FileData } from "../../types";
 
-export const AD_VIEW_OPTIONS: string[] = ["Mobile", "Desktop", "Tablet"];
+export const AD_VIEW_OPTIONS: string[] = ["Mobile", "Desktop", "Video"];
 export const TEMPLATE_OPTIONS: string[] = [
   "Standard",
   "Premium",
   "Video Enhanced",
 ];
-export const AD_FORMAT_OPTIONS: string[] = [
-  "In-Page",
-  "First View",
-  "Interstitial",
+// export const AD_FORMAT_OPTIONS: string[] = [
+//   "In-Page",
+//   "First View",
+//   "Interstitial",
+// ];
+export const AD_FORMAT_OPTIONS: { label: string; value: string }[] = [
+  { label: "In-Page", value: "in-page" },
+  { label: "First View", value: "first-view" },
+  { label: "Interstitial", value: "interstitial" },
 ];
 export const LOGO_OPTIONS: string[] = ["Brand A", "Brand B", "No Logo"];
 
