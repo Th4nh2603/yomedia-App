@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import Icon from "../icons/Icons";
 import FileManager from "./FileManager";
 
@@ -7,7 +7,7 @@ const UploadDemo: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   // 💡 Đường dẫn SFTP hiện tại
   const [currentPath, setCurrentPath] = useState<string>(".");
 
@@ -44,44 +44,84 @@ const UploadDemo: React.FC = () => {
   const removeFile = (fileName: string) => {
     setFiles((prevFiles) => prevFiles.filter((file) => file.name !== fileName));
   };
+  const checkFileExists = async (fileName: string) => {
+    try {
+      const res = await fetch(
+        `/api/sftp/check?path=${encodeURIComponent(
+          currentPath
+        )}&fileName=${encodeURIComponent(fileName)}`
+      );
+      const data = await res.json();
+      return data.exists === true;
+    } catch (err) {
+      console.error("Check file exists error:", err);
+      // Có thể cho qua luôn (coi như chưa tồn tại) hoặc chặn lại tuỳ em
+      return false;
+    }
+  };
+  const handleCreateFolder = async () => {
+    const folderName = window.prompt("Nhập tên thư mục mới:");
 
-  // const handleUpload = async () => {
-  //   if (files.length === 0) {
-  //     alert("Please select files to upload.");
-  //     return;
-  //   }
+    if (!folderName || !folderName.trim()) return;
 
-  //   try {
-  //     const formData = new FormData();
-  //     files.forEach((file) => formData.append("files", file));
-  //     formData.append("path", currentPath); // 🔥 upload vào thư mục đang chọn
+    try {
+      const res = await fetch("/api/sftp/mkdir", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: currentPath,
+          folderName: folderName.trim(),
+        }),
+      });
 
-  //     const res = await fetch("/api/sftp/upload", {
-  //       method: "POST",
-  //       body: formData,
-  //     });
+      const data = await res.json();
 
-  //     const data = await res.json();
-  //     if (data.success) {
-  //       alert(`Upload thành công ${files.length} file(s) vào '${currentPath}'`);
-  //       setFiles([]);
-  //     } else {
-  //       alert("Upload lỗi: " + data.error);
-  //     }
-  //   } catch (err: any) {
-  //     console.error(err);
-  //     alert("Có lỗi khi upload: " + err.message);
-  //   }
-  // };
+      if (data.success) {
+        alert(`Tạo thư mục "${folderName}" thành công trong ${currentPath}`);
+        // refresh FileManager
+        setReloadKey((prev) => prev + 1);
+      } else {
+        alert("Tạo thư mục lỗi: " + data.error);
+      }
+    } catch (err: any) {
+      console.error("Create folder error:", err);
+      alert("Có lỗi khi tạo thư mục: " + err.message);
+    }
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       alert("Please select files to upload.");
       return;
     }
 
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const exists = await checkFileExists(file.name);
+        return { file, exists };
+      })
+    );
+
+    const filesToUpload: File[] = [];
+
+    for (const { file, exists } of results) {
+      if (exists) {
+        const confirmOverwrite = window.confirm(
+          `File "${file.name}" đã tồn tại.\nBạn có muốn ghi đè không?`
+        );
+        if (confirmOverwrite) filesToUpload.push(file);
+      } else {
+        filesToUpload.push(file);
+      }
+    }
+
+    if (filesToUpload.length === 0) return;
+
     try {
       const formData = new FormData();
-      files.forEach((file) => formData.append("files", file));
+      filesToUpload.forEach((file) => formData.append("files", file));
       formData.append("path", currentPath);
 
       const res = await fetch("/api/sftp/upload", {
@@ -90,18 +130,20 @@ const UploadDemo: React.FC = () => {
       });
 
       const data = await res.json();
-      console.log("upload response:", data); // 👈 log ra console
 
       if (data.success) {
-        alert(`Upload thành công ${files.length} file(s) vào '${currentPath}'`);
+        alert(`Upload thành công ${filesToUpload.length} file(s)`);
         setFiles([]);
-        // ✅ Trigger refresh FileManager
-        setReloadKey((prev) => prev + 1);
+
+        // 🔴 Clear luôn input để lần sau chọn lại cùng 1 file vẫn nhận
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        setReloadKey((prev) => prev + 1); // refresh FileManager
       } else {
         alert("Upload lỗi: " + data.error);
       }
     } catch (err: any) {
-      console.error("Upload fetch error:", err);
       alert("Có lỗi khi upload: " + err.message);
     }
   };
@@ -123,9 +165,23 @@ const UploadDemo: React.FC = () => {
           <p className="text-sm text-slate-400 mt-1">
             Attach your demo files here to process them.
           </p>
-          <p className="text-xs text-slate-500 mt-2">
+          {/* <p className="text-xs text-slate-500 mt-2">
             Upload vào thư mục:{" "}
             <span className="font-mono text-yellow-300">{currentPath}</span>
+          </p> */}
+          <p className="text-xs text-slate-500 mt-2 flex items-center justify-between">
+            <span>
+              Upload vào thư mục:{" "}
+              <span className="font-mono text-yellow-300">{currentPath}</span>
+            </span>
+
+            <button
+              onClick={handleCreateFolder}
+              className="ml-2 inline-flex items-center px-2 py-1 text-[11px] rounded bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600"
+            >
+              <Icon name="folder" className="w-3 h-3 mr-1" />
+              New Folder
+            </button>
           </p>
         </div>
 
@@ -158,6 +214,7 @@ const UploadDemo: React.FC = () => {
             className="sr-only"
             multiple
             onChange={onFileSelect}
+            ref={fileInputRef} // 👈
           />
           <p className="text-xs text-slate-500 mt-4">Maximum file size: 50MB</p>
         </div>

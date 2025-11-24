@@ -66,12 +66,6 @@ const FileManager: React.FC<FileManagerProps> = ({
       alert("Không thể tải thư mục: " + e.message);
     }
   };
-
-  // useEffect(() => {
-  //   // load lần đầu với path hiện tại (thường là ".")
-  //   loadFiles(currentPath || ".");
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, []);
   useEffect(() => {
     if (reloadKey !== undefined) {
       loadFiles(currentPath);
@@ -100,7 +94,7 @@ const FileManager: React.FC<FileManagerProps> = ({
   };
 
   const handleFileDoubleClick = async (name: string) => {
-    const filePath = currentPath === "." ? name : `${currentPath}/${name}`;
+    const filePath = currentPath === "" ? name : `${currentPath}/${name}`;
     try {
       const res = await fetch(
         `/api/sftp/read?path=${encodeURIComponent(filePath)}`
@@ -124,19 +118,6 @@ const FileManager: React.FC<FileManagerProps> = ({
 
   return (
     <div className="bg-slate-800 rounded-lg shadow-lg p-6 mt-8">
-      {/* <div className="flex items-center justify-between mb-4">
-        <h2 className="text-white text-lg font-semibold">
-          📁 Path: <span className="text-yellow-400">{currentPath}</span>
-        </h2>
-        {currentPath !== "." && (
-          <button
-            onClick={handleGoBack}
-            className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded text-white"
-          >
-            ⬅ Back
-          </button>
-        )}
-      </div> */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white text-lg font-semibold flex items-center gap-3">
           📁 Path: <span className="text-yellow-400">{currentPath}</span>

@@ -10,11 +10,17 @@ import { useRouter, usePathname } from "next/navigation";
 interface SidebarProps {
   isOpen: boolean;
 }
-
+const ROLE_BY_EMAIL: Record<string, string> = {
+  "thanh26031994@gmail.com": "Developer",
+  "thanh.ntm@pinetech.vn": "Developer",
+  "tran.pl@pinetech.vn": "Designer",
+};
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+  const email = session?.user?.email || "";
+  const role = ROLE_BY_EMAIL[email] || "Guest";
 
   const renderNavItems = (section: NavItem["section"]) => {
     return (
@@ -59,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       }`}
     >
       <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700 flex-shrink-0">
-        <span className="text-xl font-bold">ADMINIS</span>
+        <span className="text-xl font-bold"></span>
         <button className="text-slate-400 hover:text-white">
           <Icon name="menu" className="w-6 h-6" />
         </button>
@@ -74,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           <p className="font-semibold text-white text-sm">
             {session?.user?.name || "Chưa đăng nhập"}
           </p>
-          <p className="text-xs text-slate-400">{session ? "Developer" : ""}</p>
+          <p className="text-xs text-slate-400">{session ? role : ""}</p>
         </div>
       </div>
 

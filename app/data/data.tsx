@@ -6,11 +6,7 @@ export const TEMPLATE_OPTIONS: string[] = [
   "Premium",
   "Video Enhanced",
 ];
-// export const AD_FORMAT_OPTIONS: string[] = [
-//   "In-Page",
-//   "First View",
-//   "Interstitial",
-// ];
+
 export const AD_FORMAT_OPTIONS: { label: string; value: string }[] = [
   { label: "In-Page", value: "in-page" },
   { label: "First View", value: "first-view" },

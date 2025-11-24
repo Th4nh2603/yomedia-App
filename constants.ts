@@ -74,7 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Document",
     icon: "documentDemo",
     section: "PAGES",
-    href: "/document",
+    href: "/documentDemo",
   },
 
   // DESIGN
