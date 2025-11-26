@@ -1,18 +1,134 @@
 import { FileData } from "../../types";
 
-export const AD_VIEW_OPTIONS: string[] = ["Mobile", "Desktop", "Video"];
-export const TEMPLATE_OPTIONS: string[] = [
-  "Standard",
-  "Premium",
-  "Video Enhanced",
-];
+export const AD_VIEW_OPTIONS: string[] = ["Mobile", "Display", "Video"];
 
-export const AD_FORMAT_OPTIONS: { label: string; value: string }[] = [
-  { label: "In-Page", value: "in-page" },
-  { label: "First View", value: "first-view" },
-  { label: "Interstitial", value: "interstitial" },
+export const TEMPLATE_OPTIONS: {
+  name: string;
+  value: string;
+}[] = [
+  { name: "Default", value: "default" },
+  {
+    name: "Eva",
+    value: "eva",
+  },
+  { name: "Phu Nu Today", value: "phunutoday" },
+  { name: "Phu Nu Online", value: "phunuonline" },
+  {
+    name: "The Thao 247",
+    value: "thethao247",
+  },
+  {
+    name: "Dan Tri",
+    value: "dantri",
+  },
 ];
-export const LOGO_OPTIONS: string[] = ["Brand A", "Brand B", "No Logo"];
+// Updated Ad Formats Structure
+export const AD_FORMAT_OPTIONS: {
+  name: string;
+  value: string;
+  type: string;
+}[] = [
+  // Display Adformats
+  { name: "Display Big Balloon", value: "big-balloon-pc", type: "display" },
+  {
+    name: "Display Masthead (Expandable)",
+    value: "masthead-pc_exp",
+    type: "display",
+  },
+  { name: "Display Bottom Up", value: "bottom-up-pc", type: "display" },
+  { name: "Display In Image Native", value: "in-native-pc", type: "display" },
+  {
+    name: "Display In Image Takeover",
+    value: "in-takeover-pc",
+    type: "display",
+  },
+  {
+    name: "Display In Image Carousel",
+    value: "in-carousel-pc",
+    type: "display",
+  },
+  {
+    name: "Display In Image Interactive",
+    value: "in-interactive-pc",
+    type: "display",
+  },
+  {
+    name: "Display In Image With Inread Video",
+    value: "in-inread-pc",
+    type: "display",
+  },
+  { name: "Display On Image", value: "on-image-pc", type: "display" },
+  {
+    name: "Display 3D Post Carousel",
+    value: "3d-post-carousel-pc",
+    type: "display",
+  },
+  {
+    name: "Display IAB Medium Rectangle (300x250)",
+    value: "medium-rectangle-pc",
+    type: "display",
+  },
+  {
+    name: "Display IAB Half Page (300x600)",
+    value: "half-page-pc",
+    type: "display",
+  },
+  { name: "Display Balloon", value: "balloon-pc", type: "display" },
+  {
+    name: "Display Masthead (Billboard)",
+    value: "masthead-pc",
+    type: "display",
+  },
+
+  // Mobile Adformats
+  { name: "3D Post Carousel", value: "3d-post-carousel-mb", type: "mobile" },
+  {
+    name: "IAB Medium Rectangle (300x250)",
+    value: "medium-rectangle-mb",
+    type: "mobile",
+  },
+  { name: "IAB Half Page (300x600)", value: "half-page-mb", type: "mobile" },
+  { name: "Interstitial (Firstview)", value: "firstview-mb", type: "mobile" },
+  { name: "Bottom Up", value: "bottom-up-mb", type: "mobile" },
+  { name: "Footer 3D Box Carousel", value: "3d-footer-mb", type: "mobile" },
+  { name: "Footer Expandable", value: "footer-mb", type: "mobile" },
+  {
+    name: "Footer Interactive Expandable",
+    value: "footer-interactive-mb",
+    type: "mobile",
+  },
+  { name: "Wheel", value: "wheel-mb", type: "mobile" },
+  { name: "Card", value: "card-mb", type: "mobile" },
+  { name: "Tetris", value: "tetris-mb", type: "mobile" },
+  { name: "Scratcher", value: "scratcher-mb", type: "mobile" },
+  { name: "Windmill", value: "windmill-mb", type: "mobile" },
+  { name: "Pull Ads", value: "pull-mb", type: "mobile" },
+  {
+    name: "Pull Interactive Ads",
+    value: "pull-interactive-mb",
+    type: "mobile",
+  },
+  { name: "In Image Native", value: "in-native-mb", type: "mobile" },
+  { name: "In Image Takeover", value: "in-takeover-mb", type: "mobile" },
+  { name: "In Image Carousel", value: "in-carousel-mb", type: "mobile" },
+  { name: "In Image Interactive", value: "in-interactive-mb", type: "mobile" },
+  { name: "In Image With Inread Video", value: "in-inread-mb", type: "mobile" },
+  { name: "On Image", value: "on-image-mb", type: "mobile" },
+  { name: "Spin Plus", value: "spin-plus-mb", type: "mobile" },
+  {
+    name: "Carousels Shoppable Ads (Inpage)",
+    value: "carousels-mb",
+    type: "mobile",
+  },
+  { name: "Shoppable Ads (Inpage)", value: "shoppable-mb", type: "mobile" },
+  { name: "Interscroller (Vertical)", value: "vertical-mb", type: "mobile" },
+  { name: "Interscroller (Inpage)", value: "inpage-mb", type: "mobile" },
+  { name: "Masthead", value: "masthead-mb", type: "mobile" },
+
+  // Video Adformats
+  { name: "Video Instream (Preroll)", value: "instream", type: "video" },
+  { name: "Video Outstream (Inread)", value: "outstream", type: "video" },
+];
 
 export const FILE_MANAGER_DATA: FileData[] = [
   {

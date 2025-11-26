@@ -1,213 +1,337 @@
 "use client";
-import React, { useCallback, useMemo, useState } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import Icon from "../icons/Icons";
 import {
   AD_VIEW_OPTIONS,
   TEMPLATE_OPTIONS,
   AD_FORMAT_OPTIONS,
-  LOGO_OPTIONS,
 } from "../data/data";
+import { TEMPLATE_COMPONENTS } from "../data/templates";
 
-/**
- * Giả định các options đều là string[].
- * Ví dụ:
- * AD_VIEW_OPTIONS = ["firstview", "midroll", "instream"]
- * TEMPLATE_OPTIONS = ["classic", "modern", ...]
- * AD_FORMAT_OPTIONS = ["video", "display", "native", ...]
- * LOGO_OPTIONS = ["none", "brandA", "brandB", ...]
- */
-
-type HostEnv = "Demo" | "Stage" | "Prod";
-
-const HOST_BASE: Record<HostEnv, string> = {
-  Demo: "https://demo.example.com",
-  Stage: "https://stage.example.com",
-  Prod: "https://www.example.com",
+type TemplateOption = {
+  name: string;
+  value: string;
 };
+type SourceEnv = "Current" | "Demo" | "Media";
 
 const BuildDemo: React.FC = () => {
-  // ---- Form state (controlled) ----
-  const [adView, setAdView] = useState<string>("");
-  const [template, setTemplate] = useState<string>("None");
-  const [adFormat, setAdFormat] = useState<string>("None");
-  const [logo, setLogo] = useState<string>("None");
-  const [hostEnv, setHostEnv] = useState<HostEnv>("Demo");
-  const [source, setSource] = useState<string>("");
+  const [selectedAdView, setSelectedAdView] = useState<string>("");
+  const [selectedAdFormat, setSelectedAdFormat] = useState<string>("");
+  const [sourcePath, setSourcePath] = useState<string>("");
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [sourceEnv, setSourceEnv] = useState<SourceEnv>("Current");
 
-  // ---- Derived: có đủ dữ liệu để build link? ----
-  const isValid = useMemo(() => {
-    if (!adView) return false; // bắt buộc chọn Ad View
-    // template/adFormat/logo có thể là "None" tùy logic của em
-    return true;
-  }, [adView]);
+  // Lọc format theo View
+  const filteredAdFormats = useMemo(() => {
+    if (selectedAdView === "Mobile") {
+      return AD_FORMAT_OPTIONS.filter((opt: any) => opt.type === "mobile");
+    }
+    if (selectedAdView === "Display") {
+      return AD_FORMAT_OPTIONS.filter((opt: any) => opt.type === "display");
+    }
+    if (selectedAdView === "Video") {
+      return AD_FORMAT_OPTIONS.filter((opt: any) => opt.type === "video");
+    }
+    return AD_FORMAT_OPTIONS;
+  }, [selectedAdView]);
 
-  // ---- Build URL output (đổi theo spec của em nếu cần) ----
-  const outputUrl = useMemo(() => {
-    if (!isValid) return "";
-    const base = HOST_BASE[hostEnv];
+  // 🔥 Khi đổi Ad View → tự động chọn format đầu tiên (nếu có), nếu không thì clear
+  useEffect(() => {
+    if (!selectedAdView) {
+      setSelectedAdFormat("");
+      return;
+    }
 
-    // Ví dụ cấu trúc link:
-    // https://{base}/{adView}/{template}/{adFormat}?logo={logo}&src={source}
-    const pathParts = [
-      adView,
-      template !== "None" ? template : undefined,
-      adFormat !== "None" ? adFormat : undefined,
-    ].filter(Boolean);
-
-    const url = new URL(pathParts.join("/"), base);
-    if (logo !== "None") url.searchParams.set("logo", logo);
-    if (source.trim()) url.searchParams.set("src", source.trim());
-    return url.toString();
-  }, [isValid, hostEnv, adView, template, adFormat, logo, source]);
-
-  // ---- Handlers ----
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!isValid) {
-        alert("Vui lòng chọn Ad View!");
-        return;
+    if (filteredAdFormats.length > 0) {
+      const first = filteredAdFormats[0] as any;
+      if (first && first.value) {
+        setSelectedAdFormat(first.value);
       }
-      alert("Form submitted!");
-    },
-    [isValid]
-  );
+    } else {
+      setSelectedAdFormat("");
+    }
+  }, [selectedAdView, filteredAdFormats]);
 
-  const handleReset = useCallback(() => {
-    setAdView("");
-    setTemplate("None");
-    setAdFormat("None");
-    setLogo("None");
-    setHostEnv("Demo");
-    setSource("");
-  }, []);
+  const getBaseDomain = (env: SourceEnv) => {
+    if (env === "Current") {
+      if (typeof window !== "undefined") {
+        return window.location.origin;
+      }
+      return "";
+    }
 
-  const handleCopy = useCallback(async () => {
-    if (!outputUrl) {
-      alert("Chưa có URL để copy.");
+    switch (env) {
+      case "Demo":
+        return process.env.NEXT_PUBLIC_DOMAIN_DEMO || "";
+      case "Media":
+        return process.env.NEXT_PUBLIC_DOMAIN_MEDIA || "";
+      default:
+        return "";
+    }
+  };
+
+  // ✅ generate URL – chỉ cần check rỗng
+  const outputSource = useMemo(() => {
+    if (
+      !selectedAdView ||
+      !selectedTemplate ||
+      !selectedAdFormat ||
+      !sourcePath
+    )
+      return "";
+
+    const base = getBaseDomain(sourceEnv);
+
+    return `${base}/preview?view=${encodeURIComponent(
+      selectedAdView
+    )}&tpl=${encodeURIComponent(selectedTemplate)}&fmt=${encodeURIComponent(
+      selectedAdFormat
+    )}&path=${encodeURIComponent(sourcePath)}`;
+  }, [
+    selectedAdView,
+    selectedTemplate,
+    selectedAdFormat,
+    sourceEnv,
+    sourcePath,
+  ]);
+
+  // const outputSource = useMemo(() => {
+  //   if (
+  //     !selectedAdView ||
+  //     !selectedTemplate ||
+  //     !selectedAdFormat ||
+  //     !sourcePath
+  //   )
+  //     return "";
+
+  //   const base =
+  //     sourceEnv === "Demo"
+  //       ? "https://demo.example.com"
+  //       : sourceEnv === "Stage"
+  //       ? "https://stage.example.com"
+  //       : "https://prod.example.com";
+
+  //   return `${base}/${sourcePath}?view=${encodeURIComponent(
+  //     selectedAdView
+  //   )}&tpl=${encodeURIComponent(selectedTemplate)}&fmt=${encodeURIComponent(
+  //     selectedAdFormat
+  //   )}`;
+  // }, [
+  //   selectedAdView,
+  //   selectedTemplate,
+  //   selectedAdFormat,
+  //   sourceEnv,
+  //   sourcePath,
+  // ]);
+
+  const templateOptions = TEMPLATE_OPTIONS as TemplateOption[];
+
+  const selectedTemplateName = useMemo(() => {
+    const found = templateOptions.find((tpl) => tpl.value === selectedTemplate);
+    return found ? found.name : "";
+  }, [selectedTemplate, templateOptions]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    console.log({
+      selectedAdView,
+      selectedTemplate,
+      selectedAdFormat,
+      sourcePath,
+      outputSource,
+    });
+
+    if (!outputSource) {
+      alert("Vui lòng chọn đủ thông tin để generate URL 🔗");
+      return;
+    }
+    alert("Form submitted!\n" + outputSource);
+  };
+
+  const handleReset = () => {
+    setSelectedAdView("");
+    setSelectedTemplate("");
+    setSelectedAdFormat("");
+    setSourceEnv("Demo");
+    setSourcePath("");
+    alert("Form reset!");
+  };
+
+  const handleCopy = async () => {
+    if (!outputSource) {
+      alert("Chưa có URL để copy 😅");
       return;
     }
     try {
-      await navigator.clipboard.writeText(outputUrl);
-      alert("Đã copy URL vào clipboard!");
-    } catch {
-      alert("Copy thất bại. Có thể trình duyệt chặn clipboard.");
+      await navigator.clipboard.writeText(outputSource);
+      alert("Copied to clipboard! ✅");
+    } catch (err) {
+      console.error(err);
+      alert("Không copy được vào clipboard 😢");
     }
-  }, [outputUrl]);
+  };
 
-  const handleOpen = useCallback(() => {
-    if (!outputUrl) {
-      alert("Chưa có URL để mở.");
+  const handleOpen = () => {
+    if (!outputSource) {
+      alert("Chưa có URL để mở 😅");
       return;
     }
-    window.open(outputUrl, "_blank", "noopener,noreferrer");
-  }, [outputUrl]);
+    window.open(outputSource, "_blank", "noopener,noreferrer");
+  };
 
-  // ---- Reusable SelectInput ----
+  // ---------------- SelectInput ----------------
   const SelectInput: React.FC<{
     label: string;
-    options: (string | { label: string; value: string })[];
-    defaultValue: string;
+    options: any[];
+    value: string;
+    setValue: (val: string) => void;
     isPlaceholder?: boolean;
-  }> = ({ label, options, defaultValue, isPlaceholder }) => (
-    <div>
-      <label
-        htmlFor={label}
-        className="block text-sm font-medium text-slate-300 mb-2"
-      >
-        {label}
-      </label>
-      <select
-        id={label}
-        name={label}
-        defaultValue={isPlaceholder ? "" : defaultValue}
-        className="w-full pl-4 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-          backgroundPosition: "right 0.5rem center",
-          backgroundSize: "1.5em 1.5em",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        {isPlaceholder && (
-          <option value="" disabled>
-            {defaultValue}
-          </option>
-        )}
-        {!isPlaceholder && <option value={defaultValue}>{defaultValue}</option>}
-        {options.map((opt) => {
-          if (typeof opt === "string") {
-            return (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            );
-          }
+    placeholderText?: string;
+  }> = ({
+    label,
+    options,
+    value,
+    setValue,
+    isPlaceholder,
+    placeholderText,
+  }) => {
+    const renderOptions = () => {
+      if (
+        options.length > 0 &&
+        typeof options[0] === "object" &&
+        "type" in options[0]
+      ) {
+        const grouped = options.reduce(
+          (acc: Record<string, any[]>, item: any) => {
+            const group = String(item.type);
+            if (!acc[group]) acc[group] = [];
+            acc[group].push(item);
+            return acc;
+          },
+          {} as Record<string, any[]>
+        );
+
+        return Object.entries(grouped).map(([group, items]) => {
+          const itemsArr = items as any[];
           return (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+            <optgroup
+              key={group}
+              label={group.charAt(0).toUpperCase() + group.slice(1)}
+            >
+              {itemsArr.map((opt: any) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.name}
+                </option>
+              ))}
+            </optgroup>
+          );
+        });
+      }
+
+      return options.map((opt: any) => {
+        if (typeof opt === "string") {
+          return (
+            <option key={opt} value={opt}>
+              {opt}
             </option>
           );
-        })}
-      </select>
-    </div>
-  );
+        }
+        return (
+          <option key={opt.value} value={opt.value}>
+            {opt.label || opt.name}
+          </option>
+        );
+      });
+    };
+
+    return (
+      <div>
+        <label
+          htmlFor={label}
+          className="block text-sm font-medium text-slate-300 mb-2"
+        >
+          {label}
+        </label>
+        <select
+          id={label}
+          name={label}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-full pl-4 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundPosition: "right 0.5rem center",
+            backgroundSize: "1.5em 1.5em",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          {isPlaceholder && (
+            <option value="" disabled>
+              {placeholderText || "Please select an option ..."}
+            </option>
+          )}
+          {renderOptions()}
+        </select>
+      </div>
+    );
+  };
 
   return (
     <div className="bg-slate-800 rounded-lg shadow-lg p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Ad Formats Demo Form</h1>
         <p className="text-sm text-slate-400 mt-1">
-          Chọn các tùy chọn để tạo link demo. Ad View là bắt buộc.
+          Choose required options to generate an ad format demo link.
         </p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* FORM */}
         <div className="lg:w-2/3">
           <form onSubmit={handleSubmit} className="space-y-6">
             <SelectInput
               label="Ad View"
-              options={AD_VIEW_OPTIONS}
-              defaultValue="Please select an option ..."
+              options={AD_VIEW_OPTIONS as any[]}
+              value={selectedAdView}
+              setValue={setSelectedAdView}
               isPlaceholder
-            />
-            <SelectInput
-              label="Template"
-              options={TEMPLATE_OPTIONS}
-              defaultValue="None"
-            />
-            <SelectInput
-              label="Ad Format"
-              options={AD_FORMAT_OPTIONS}
-              defaultValue="None"
-            />
-            <SelectInput
-              label="Logo"
-              options={LOGO_OPTIONS}
-              defaultValue="None"
+              placeholderText="Please select an option ..."
             />
 
-            {/* SOURCE + ENV */}
+            <SelectInput
+              label="Template"
+              options={TEMPLATE_OPTIONS as any[]}
+              value={selectedTemplate}
+              setValue={setSelectedTemplate}
+              isPlaceholder
+              placeholderText="None"
+            />
+
+            <SelectInput
+              label="Ad Format"
+              options={filteredAdFormats as any[]}
+              value={selectedAdFormat}
+              setValue={setSelectedAdFormat}
+              // vẫn cho placeholder khi chưa chọn view
+              isPlaceholder={!selectedAdView}
+              placeholderText="None"
+            />
+
+            {/* Source */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Source
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center space-x-2">
                 <select
                   className="pl-4 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: "right 0.5rem center",
-                    backgroundSize: "1.5em 1.5em",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                  value={hostEnv}
-                  onChange={(e) => setHostEnv(e.target.value as HostEnv)}
+                  value={sourceEnv}
+                  onChange={(e) => setSourceEnv(e.target.value as SourceEnv)}
                 >
-                  <option>Demo</option>
-                  <option>Stage</option>
-                  <option>Prod</option>
+                  <option value="Current">Current domain</option>
+                  <option value="Demo">Demo</option>
+                  <option value="Media">Media</option>
                 </select>
 
                 <div className="relative flex-grow">
@@ -217,40 +341,29 @@ const BuildDemo: React.FC = () => {
                   <input
                     type="text"
                     placeholder="source here ..."
+                    value={sourcePath}
+                    onChange={(e) => setSourcePath(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    value={source}
-                    onChange={(e) => setSource(e.target.value)}
                   />
                 </div>
               </div>
             </div>
 
-            {/* OUTPUT */}
+            {/* Output */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (outputUrl) {
-                      navigator.clipboard
-                        .writeText(outputUrl)
-                        .then(() => alert("Đã copy URL!"))
-                        .catch(() => alert("Copy thất bại."));
-                    }
-                  }}
                   className="flex items-center space-x-2 border border-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-md text-sm hover:bg-slate-700"
                 >
                   <Icon name="externalLink" className="w-4 h-4" />
                   <span>OUTPUT SOURCE</span>
                 </button>
-
-                <div className="flex gap-2">
+                <div className="flex space-x-2">
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-md text-sm"
-                    disabled={!outputUrl}
-                    aria-disabled={!outputUrl}
+                    className="flex items-center space-x-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-md text-sm"
                   >
                     <Icon name="copy" className="w-4 h-4" />
                     <span>COPY</span>
@@ -258,82 +371,81 @@ const BuildDemo: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleOpen}
-                    className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-md text-sm"
-                    disabled={!outputUrl}
-                    aria-disabled={!outputUrl}
+                    className="flex items-center space-x-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-md text-sm"
                   >
                     <Icon name="externalLink" className="w-4 h-4" />
                     <span>OPEN IN NEW TAB</span>
                   </button>
                 </div>
               </div>
-
               <textarea
                 rows={4}
-                readOnly
-                value={outputUrl}
-                className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-md text-sm text-slate-300 resize-none"
-                placeholder="URL sẽ hiển thị ở đây sau khi chọn đủ Ad View."
+                disabled
+                value={outputSource}
+                className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-md text-sm text-slate-400 resize-none cursor-not-allowed"
               />
             </div>
 
-            {/* ACTIONS */}
-            <div className="flex justify-between items-center pt-4">
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={!isValid}
-                  className={`flex items-center justify-center gap-2 font-bold py-2 px-4 rounded-md transition-colors duration-200 ${
-                    isValid
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "bg-blue-600/40 text-white/70 cursor-not-allowed"
-                  }`}
-                >
-                  <Icon name="paperPlane" className="w-5 h-5" />
-                  <span>SUBMIT</span>
-                </button>
+            <div className="flex justify-end items-center pt-6 border-t border-slate-700/60 mt-4">
+              <div className="flex gap-3">
+                {/* Reset */}
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-500/70 
+                 bg-slate-800/70 px-5 py-2.5 text-sm font-semibold text-slate-200
+                 hover:bg-slate-700 hover:border-slate-300 hover:text-white
+                 hover:translate-y-[1px] active:translate-y-[2px]
+                 transition-all duration-150 shadow-sm shadow-black/40"
                 >
-                  <Icon name="reset" className="w-5 h-5" />
+                  <Icon name="reset" className="w-4 h-4" />
                   <span>RESET</span>
                 </button>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => alert("Conversion action! (tùy em định nghĩa)")}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200"
-              >
-                CONVERSION
-              </button>
+                {/* Submit */}
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full 
+                 bg-gradient-to-r from-blue-500 to-cyan-500 
+                 px-6 py-2.5 text-sm font-semibold text-white
+                 shadow-lg shadow-blue-500/30
+                 hover:from-blue-400 hover:to-cyan-400
+                 hover:translate-y-[1px] active:translate-y-[2px]
+                 active:shadow-md transition-all duration-150"
+                >
+                  <Icon name="paperPlane" className="w-4 h-4" />
+                  <span>SUBMIT</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
 
-        {/* PREVIEW */}
         <div className="lg:w-1/3">
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Template Preview
           </label>
 
-          {outputUrl ? (
-            <div className="w-full h-64 bg-slate-900 rounded-md overflow-hidden border border-slate-700">
-              <iframe
-                src={outputUrl}
-                title="Ad Preview"
-                className="w-full h-full"
-              />
-            </div>
-          ) : (
-            <div className="w-full h-64 bg-slate-700 rounded-md flex flex-col items-center justify-center text-slate-500">
-              <Icon name="image" className="w-16 h-16 mb-4" />
-              <p className="font-semibold">No Preview Available</p>
-              <p className="text-xs mt-1">Chọn Ad View để hiển thị preview</p>
-            </div>
-          )}
+          <div className="w-full h-64 bg-slate-700 rounded-md p-3 overflow-auto">
+            {selectedTemplate ? (
+              TEMPLATE_COMPONENTS[selectedTemplate] || (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                  <Icon name="image" className="w-16 h-16 mb-4" />
+                  <p className="font-semibold">Template chưa được định nghĩa</p>
+                </div>
+              )
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                <Icon name="image" className="w-16 h-16 mb-2" />
+                <p className="font-semibold">No Preview Available</p>
+                {selectedTemplateName && (
+                  <p className="text-xs mt-1 text-slate-500">
+                    Selected: {selectedTemplateName}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -165,10 +165,6 @@ const UploadDemo: React.FC = () => {
           <p className="text-sm text-slate-400 mt-1">
             Attach your demo files here to process them.
           </p>
-          {/* <p className="text-xs text-slate-500 mt-2">
-            Upload vào thư mục:{" "}
-            <span className="font-mono text-yellow-300">{currentPath}</span>
-          </p> */}
           <p className="text-xs text-slate-500 mt-2 flex items-center justify-between">
             <span>
               Upload vào thư mục:{" "}
