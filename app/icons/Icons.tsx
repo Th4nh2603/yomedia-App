@@ -254,6 +254,13 @@ const Icon: React.FC<IconProps> = ({ name, className = "w-6 h-6" }) => {
         d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
       />
     ),
+    edit: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+      />
+    ),
     invoices: (
       <path
         strokeLinecap="round"

@@ -56,6 +56,7 @@ export type IconName =
   | "invoices"
   | "externalLink"
   | "lock"
+  | "edit"
   | "google"
   | "logout";
 

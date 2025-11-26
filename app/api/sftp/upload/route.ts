@@ -8,7 +8,6 @@ export async function POST(req: Request) {
     const formData = await req.formData();
 
     const rawFiles = formData.getAll("files");
-
     const files = rawFiles.filter(
       (f): f is File => typeof f === "object" && "arrayBuffer" in f
     ) as File[];
@@ -34,17 +33,32 @@ export async function POST(req: Request) {
       password: process.env.SFTP_PASS,
     });
 
-    if (targetPath !== "." && targetPath !== "") {
-      await sftp.mkdir(targetPath, true).catch(() => {});
-    }
-
     const uploaded: string[] = [];
+    const skippedExisting: string[] = [];
 
     for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
 
+      // ✅ file.name có thể là path: 480x270/abc.html
+      const relativePath = file.name.replace(/\\/g, "/");
+
       const remoteFilePath =
-        targetPath === "." ? `./${file.name}` : `${targetPath}/${file.name}`;
+        targetPath === "."
+          ? `./${relativePath}`
+          : `${targetPath}/${relativePath}`;
+
+      // 🔥 Tạo folder trung gian (recursive)
+      const dir = remoteFilePath.substring(0, remoteFilePath.lastIndexOf("/"));
+      if (dir) {
+        await sftp.mkdir(dir, true).catch(() => {});
+      }
+
+      // ✅ Check tồn tại – nếu có thì bỏ qua
+      const exists = await sftp.exists(remoteFilePath);
+      if (exists) {
+        skippedExisting.push(remoteFilePath);
+        continue;
+      }
 
       await sftp.put(buffer, remoteFilePath);
       uploaded.push(remoteFilePath);
@@ -52,7 +66,11 @@ export async function POST(req: Request) {
 
     await sftp.end();
 
-    return NextResponse.json({ success: true, uploaded });
+    return NextResponse.json({
+      success: true,
+      uploaded,
+      skippedExisting,
+    });
   } catch (err: any) {
     console.error("SFTP upload error:", err);
     return NextResponse.json(

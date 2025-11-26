@@ -1,13 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import Icon from "../icons/Icons";
 import {
   AD_VIEW_OPTIONS,
   TEMPLATE_OPTIONS,
   AD_FORMAT_OPTIONS,
 } from "../data/data";
-import { TEMPLATE_COMPONENTS } from "../data/templates";
+import FileManager from "./FileManager";
 
 type TemplateOption = {
   name: string;
@@ -16,13 +22,23 @@ type TemplateOption = {
 type SourceEnv = "Current" | "Demo" | "Media";
 
 const BuildDemo: React.FC = () => {
+  // ========= STATE CHO FORM BUILD DEMO =========
   const [selectedAdView, setSelectedAdView] = useState<string>("");
   const [selectedAdFormat, setSelectedAdFormat] = useState<string>("");
   const [sourcePath, setSourcePath] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [sourceEnv, setSourceEnv] = useState<SourceEnv>("Current");
 
+  // ========= STATE CHO UPLOAD DEMO =========
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [currentPath, setCurrentPath] = useState<string>(".");
+
+  // ====================================================
   // Lọc format theo View
+  // ====================================================
   const filteredAdFormats = useMemo(() => {
     if (selectedAdView === "Mobile") {
       return AD_FORMAT_OPTIONS.filter((opt: any) => opt.type === "mobile");
@@ -36,13 +52,16 @@ const BuildDemo: React.FC = () => {
     return AD_FORMAT_OPTIONS;
   }, [selectedAdView]);
 
-  // 🔥 Khi đổi Ad View → tự động chọn format đầu tiên (nếu có), nếu không thì clear
   useEffect(() => {
     if (!selectedAdView) {
       setSelectedAdFormat("");
       return;
     }
-
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute("webkitdirectory", "");
+      fileInputRef.current.setAttribute("directory", "");
+      fileInputRef.current.setAttribute("accept", ".zip,.rar,.7z");
+    }
     if (filteredAdFormats.length > 0) {
       const first = filteredAdFormats[0] as any;
       if (first && first.value) {
@@ -71,7 +90,6 @@ const BuildDemo: React.FC = () => {
     }
   };
 
-  // ✅ generate URL – chỉ cần check rỗng
   const outputSource = useMemo(() => {
     if (
       !selectedAdView ||
@@ -96,35 +114,6 @@ const BuildDemo: React.FC = () => {
     sourcePath,
   ]);
 
-  // const outputSource = useMemo(() => {
-  //   if (
-  //     !selectedAdView ||
-  //     !selectedTemplate ||
-  //     !selectedAdFormat ||
-  //     !sourcePath
-  //   )
-  //     return "";
-
-  //   const base =
-  //     sourceEnv === "Demo"
-  //       ? "https://demo.example.com"
-  //       : sourceEnv === "Stage"
-  //       ? "https://stage.example.com"
-  //       : "https://prod.example.com";
-
-  //   return `${base}/${sourcePath}?view=${encodeURIComponent(
-  //     selectedAdView
-  //   )}&tpl=${encodeURIComponent(selectedTemplate)}&fmt=${encodeURIComponent(
-  //     selectedAdFormat
-  //   )}`;
-  // }, [
-  //   selectedAdView,
-  //   selectedTemplate,
-  //   selectedAdFormat,
-  //   sourceEnv,
-  //   sourcePath,
-  // ]);
-
   const templateOptions = TEMPLATE_OPTIONS as TemplateOption[];
 
   const selectedTemplateName = useMemo(() => {
@@ -132,6 +121,9 @@ const BuildDemo: React.FC = () => {
     return found ? found.name : "";
   }, [selectedTemplate, templateOptions]);
 
+  // ====================================================
+  // HANDLER FORM (giữ lại để log nếu cần)
+  // ====================================================
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -181,7 +173,265 @@ const BuildDemo: React.FC = () => {
     window.open(outputSource, "_blank", "noopener,noreferrer");
   };
 
-  // ---------------- SelectInput ----------------
+  // ====================================================
+  // HANDLER CHO UPLOAD DEMO
+  // ====================================================
+  const handleFileChange = (selectedFiles: FileList | null) => {
+    if (selectedFiles) {
+      const newFiles = Array.from(selectedFiles);
+      setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    }
+  };
+
+  const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const onDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const traverseFileTree = async (item: any, path = ""): Promise<File[]> => {
+    return new Promise((resolve) => {
+      if (item.isFile) {
+        item.file((file: File) => {
+          resolve([new File([file], path + file.name, { type: file.type })]);
+        });
+      } else if (item.isDirectory) {
+        const dirReader = item.createReader();
+        dirReader.readEntries(async (entries: any[]) => {
+          const files: File[] = [];
+          for (const entry of entries) {
+            const childFiles = await traverseFileTree(
+              entry,
+              path + item.name + "/"
+            );
+            files.push(...childFiles);
+          }
+          resolve(files);
+        });
+      }
+    });
+  };
+
+  const onDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const items = e.dataTransfer.items;
+    let allFiles: File[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i].webkitGetAsEntry();
+      if (item) {
+        const files = await traverseFileTree(item);
+        allFiles.push(...files);
+      }
+    }
+
+    if (allFiles.length > 0) {
+      setFiles((prev) => [...prev, ...allFiles]);
+    }
+  }, []);
+
+  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileChange(e.target.files);
+  };
+
+  const removeFile = (fileName: string) => {
+    setFiles((prevFiles) => prevFiles.filter((file) => file.name !== fileName));
+  };
+
+  const checkFileExists = async (fileName: string) => {
+    try {
+      const res = await fetch(
+        `/api/sftp/check?path=${encodeURIComponent(
+          currentPath
+        )}&fileName=${encodeURIComponent(fileName)}`
+      );
+      const data = await res.json();
+      return data.exists === true;
+    } catch (err) {
+      console.error("Check file exists error:", err);
+      return false;
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const folderName = window.prompt("Nhập tên thư mục mới:");
+
+    if (!folderName || !folderName.trim()) return;
+
+    try {
+      const res = await fetch("/api/sftp/mkdir", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path: currentPath,
+          folderName: folderName.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        if (data.uploaded.length === 0 && data.skippedExisting.length > 0) {
+          alert("Tất cả file đã tồn tại, không có file nào được upload.");
+        } else {
+          alert(
+            `Upload thành công ${data.uploaded.length} file(s)` +
+              (data.skippedExisting.length
+                ? `\nBỏ qua ${data.skippedExisting.length} file đã tồn tại.`
+                : "")
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error("Create folder error:", err);
+      alert("Có lỗi khi tạo thư mục: " + err.message);
+    }
+  };
+
+  // const handleUpload = async () => {
+  //   if (files.length === 0) {
+  //     alert("Please select files to upload.");
+  //     return;
+  //   }
+
+  //   const results = await Promise.all(
+  //     files.map(async (file) => {
+  //       const exists = await checkFileExists(file.name);
+  //       return { file, exists };
+  //     })
+  //   );
+
+  //   const filesToUpload: File[] = [];
+
+  //   for (const { file, exists } of results) {
+  //     if (exists) {
+  //       const confirmOverwrite = window.confirm(
+  //         `File "${file.name}" đã tồn tại.\nBạn có muốn ghi đè không?`
+  //       );
+  //       if (confirmOverwrite) filesToUpload.push(file);
+  //     } else {
+  //       filesToUpload.push(file);
+  //     }
+  //   }
+
+  //   if (filesToUpload.length === 0) return;
+
+  //   try {
+  //     const formData = new FormData();
+  //     filesToUpload.forEach((file) => formData.append("files", file));
+  //     formData.append("path", currentPath);
+
+  //     const res = await fetch("/api/sftp/upload", {
+  //       method: "POST",
+  //       body: formData,
+  //     });
+
+  //     const data = await res.json();
+
+  //     if (data.success) {
+  //       alert(`Upload thành công ${filesToUpload.length} file(s)`);
+  //       setFiles([]);
+
+  //       if (fileInputRef.current) {
+  //         fileInputRef.current.value = "";
+  //       }
+  //       setReloadKey((prev) => prev + 1);
+  //     } else {
+  //       alert("Upload lỗi: " + data.error);
+  //     }
+  //   } catch (err: any) {
+  //     alert("Có lỗi khi upload: " + err.message);
+  //   }
+  // };
+
+  const handleUpload = async () => {
+    if (files.length === 0) {
+      alert("Please select files to upload.");
+      return;
+    }
+
+    // 1. Kiểm tra tồn tại
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const exists = await checkFileExists(file.name);
+        return { file, exists };
+      })
+    );
+
+    // 2. Chỉ giữ lại file CHƯA tồn tại
+    const filesToUpload = results
+      .filter(({ exists }) => !exists)
+      .map(({ file }) => file);
+
+    // 3. Nếu tất cả đều tồn tại -> báo và dừng
+    if (filesToUpload.length === 0) {
+      alert("Tất cả file đã tồn tại trên server, không có file nào để upload.");
+      return;
+    }
+
+    // (tuỳ chọn) báo những file bị bỏ qua
+    const skipped = results
+      .filter(({ exists }) => exists)
+      .map(({ file }) => file.name);
+    if (skipped.length > 0) {
+      alert("Các file đã tồn tại và sẽ không upload:\n" + skipped.join("\n"));
+    }
+
+    try {
+      const formData = new FormData();
+
+      // Nếu em đã dùng folder / webkitRelativePath thì có thể chỉnh chỗ này:
+      filesToUpload.forEach((file) => {
+        // const relativePath = (file as any).webkitRelativePath || file.name;
+        // formData.append("files", file, relativePath);
+        formData.append("files", file);
+      });
+
+      formData.append("path", currentPath);
+
+      const res = await fetch("/api/sftp/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert(`Upload thành công ${filesToUpload.length} file(s)`);
+        setFiles([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        setReloadKey((prev) => prev + 1);
+      } else {
+        alert("Upload lỗi: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Có lỗi khi upload: " + err.message);
+    }
+  };
+
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  // ====================================================
+  // COMPONENT SELECT INPUT
+  // ====================================================
   const SelectInput: React.FC<{
     label: string;
     options: any[];
@@ -278,6 +528,9 @@ const BuildDemo: React.FC = () => {
     );
   };
 
+  // ====================================================
+  // RENDER
+  // ====================================================
   return (
     <div className="bg-slate-800 rounded-lg shadow-lg p-6">
       <div className="mb-8">
@@ -287,166 +540,278 @@ const BuildDemo: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="lg:w-2/3">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <SelectInput
-              label="Ad View"
-              options={AD_VIEW_OPTIONS as any[]}
-              value={selectedAdView}
-              setValue={setSelectedAdView}
-              isPlaceholder
-              placeholderText="Please select an option ..."
-            />
+      {/* items-stretch để 2 cột cao ngang nhau */}
+      <div className="flex flex-col lg:flex-row gap-8 lg:items-stretch">
+        {/* LEFT: FORM BUILD DEMO */}
+        <div className="lg:w-2/3 flex flex-col">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-6 flex-1 flex flex-col"
+          >
+            <div className="space-y-6">
+              <SelectInput
+                label="Ad View"
+                options={AD_VIEW_OPTIONS as any[]}
+                value={selectedAdView}
+                setValue={setSelectedAdView}
+                isPlaceholder
+                placeholderText="Please select an option ..."
+              />
 
-            <SelectInput
-              label="Template"
-              options={TEMPLATE_OPTIONS as any[]}
-              value={selectedTemplate}
-              setValue={setSelectedTemplate}
-              isPlaceholder
-              placeholderText="None"
-            />
+              <SelectInput
+                label="Template"
+                options={TEMPLATE_OPTIONS as any[]}
+                value={selectedTemplate}
+                setValue={setSelectedTemplate}
+                isPlaceholder
+                placeholderText="None"
+              />
 
-            <SelectInput
-              label="Ad Format"
-              options={filteredAdFormats as any[]}
-              value={selectedAdFormat}
-              setValue={setSelectedAdFormat}
-              // vẫn cho placeholder khi chưa chọn view
-              isPlaceholder={!selectedAdView}
-              placeholderText="None"
-            />
+              <SelectInput
+                label="Ad Format"
+                options={filteredAdFormats as any[]}
+                value={selectedAdFormat}
+                setValue={setSelectedAdFormat}
+                isPlaceholder={!selectedAdView}
+                placeholderText="None"
+              />
 
-            {/* Source */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Source
-              </label>
-              <div className="flex items-center space-x-2">
-                <select
-                  className="pl-4 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
-                  value={sourceEnv}
-                  onChange={(e) => setSourceEnv(e.target.value as SourceEnv)}
-                >
-                  <option value="Current">Current domain</option>
-                  <option value="Demo">Demo</option>
-                  <option value="Media">Media</option>
-                </select>
+              {/* Source */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Source
+                </label>
+                <div className="flex items-center space-x-2">
+                  <select
+                    className="pl-4 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
+                    value={sourceEnv}
+                    onChange={(e) => setSourceEnv(e.target.value as SourceEnv)}
+                  >
+                    <option value="Current">Current domain</option>
+                    <option value="Demo">Demo</option>
+                    <option value="Media">Media</option>
+                  </select>
 
-                <div className="relative flex-grow">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Icon name="link" className="w-5 h-5 text-slate-400" />
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="source here ..."
-                    value={sourcePath}
-                    onChange={(e) => setSourcePath(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
+                  <div className="relative flex-grow">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                      <Icon name="link" className="w-5 h-5 text-slate-400" />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="source here ..."
+                      value={sourcePath}
+                      onChange={(e) => setSourcePath(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Output */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <button
-                  type="button"
-                  className="flex items-center space-x-2 border border-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-md text-sm hover:bg-slate-700"
-                >
-                  <Icon name="externalLink" className="w-4 h-4" />
-                  <span>OUTPUT SOURCE</span>
-                </button>
-                <div className="flex space-x-2">
+              {/* Output */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  {/* Nút label bên trái */}
                   <button
                     type="button"
-                    onClick={handleCopy}
-                    className="flex items-center space-x-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-md text-sm"
-                  >
-                    <Icon name="copy" className="w-4 h-4" />
-                    <span>COPY</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpen}
-                    className="flex items-center space-x-2 bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-3 rounded-md text-sm"
+                    className="inline-flex items-center gap-2 rounded-full 
+                 border border-slate-500/70 bg-slate-800/80 
+                 px-4 py-1.5 text-xs font-semibold text-slate-100
+                 hover:border-teal-400 hover:bg-slate-700 hover:text-white
+                 hover:-translate-y-[1px] active:translate-y-0
+                 transition-all duration-150 shadow-sm shadow-black/40"
                   >
                     <Icon name="externalLink" className="w-4 h-4" />
-                    <span>OPEN IN NEW TAB</span>
+                    <span>OUTPUT SOURCE</span>
                   </button>
+
+                  {/* Nhóm action bên phải */}
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    {/* RESET */}
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="inline-flex items-center gap-1.5 rounded-full 
+                   border border-slate-500/70 bg-slate-800/80 
+                   px-4 py-1.5 text-xs font-semibold text-slate-100
+                   hover:border-amber-400 hover:bg-slate-700 hover:text-white
+                   hover:-translate-y-[1px] active:translate-y-0
+                   transition-all duration-150 shadow-sm shadow-black/40"
+                    >
+                      <Icon name="reset" className="w-3.5 h-3.5" />
+                      <span>RESET</span>
+                    </button>
+
+                    {/* COPY */}
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      className="inline-flex items-center gap-1.5 rounded-full 
+                   border border-slate-500/70 bg-slate-800/80 
+                   px-4 py-1.5 text-xs font-semibold text-slate-100
+                   hover:border-teal-400 hover:bg-slate-700 hover:text-white
+                   hover:-translate-y-[1px] active:translate-y-0
+                   transition-all duration-150 shadow-sm shadow-black/40"
+                    >
+                      <Icon name="copy" className="w-3.5 h-3.5" />
+                      <span>COPY</span>
+                    </button>
+
+                    {/* OPEN IN NEW TAB */}
+                    <button
+                      type="button"
+                      onClick={handleOpen}
+                      className="inline-flex items-center gap-1.5 rounded-full 
+                   bg-gradient-to-r from-blue-500 to-cyan-500 
+                   px-4 py-1.5 text-xs font-semibold text-white
+                   shadow-md shadow-blue-500/40
+                   hover:from-blue-400 hover:to-cyan-400
+                   hover:-translate-y-[1px] active:translate-y-0
+                   transition-all duration-150"
+                    >
+                      <Icon name="externalLink" className="w-3.5 h-3.5" />
+                      <span>OPEN IN NEW TAB</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <textarea
-                rows={4}
-                disabled
-                value={outputSource}
-                className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-md text-sm text-slate-400 resize-none cursor-not-allowed"
-              />
-            </div>
 
-            <div className="flex justify-end items-center pt-6 border-t border-slate-700/60 mt-4">
-              <div className="flex gap-3">
-                {/* Reset */}
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-500/70 
-                 bg-slate-800/70 px-5 py-2.5 text-sm font-semibold text-slate-200
-                 hover:bg-slate-700 hover:border-slate-300 hover:text-white
-                 hover:translate-y-[1px] active:translate-y-[2px]
-                 transition-all duration-150 shadow-sm shadow-black/40"
-                >
-                  <Icon name="reset" className="w-4 h-4" />
-                  <span>RESET</span>
-                </button>
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-full 
-                 bg-gradient-to-r from-blue-500 to-cyan-500 
-                 px-6 py-2.5 text-sm font-semibold text-white
-                 shadow-lg shadow-blue-500/30
-                 hover:from-blue-400 hover:to-cyan-400
-                 hover:translate-y-[1px] active:translate-y-[2px]
-                 active:shadow-md transition-all duration-150"
-                >
-                  <Icon name="paperPlane" className="w-4 h-4" />
-                  <span>SUBMIT</span>
-                </button>
+                <textarea
+                  rows={4}
+                  disabled
+                  value={outputSource}
+                  className="w-full p-4 bg-slate-700/50 border border-slate-600 rounded-md text-sm text-slate-400 resize-none cursor-not-allowed"
+                />
               </div>
             </div>
+
+            {/* ❌ bỏ hẳn nút SUBMIT ở dưới nên không render block nút nữa */}
           </form>
         </div>
 
-        <div className="lg:w-1/3">
+        {/* RIGHT: UPLOAD FILE – cao ngang form bên trái */}
+        <div className="lg:w-1/3 flex flex-col">
           <label className="block text-sm font-medium text-slate-300 mb-2">
-            Template Preview
+            Upload Demo File
           </label>
 
-          <div className="w-full h-64 bg-slate-700 rounded-md p-3 overflow-auto">
-            {selectedTemplate ? (
-              TEMPLATE_COMPONENTS[selectedTemplate] || (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                  <Icon name="image" className="w-16 h-16 mb-4" />
-                  <p className="font-semibold">Template chưa được định nghĩa</p>
+          {/* flex-1 + h-full để panel này cao bằng cột trái */}
+          <div className="w-full bg-slate-700 rounded-md p-4 flex-1 flex flex-col">
+            <p className="text-xs text-slate-500 mb-2 flex items-center justify-between">
+              <span>
+                Upload vào thư mục:{" "}
+                <span className="font-mono text-yellow-300">{currentPath}</span>
+              </span>
+
+              <button
+                onClick={handleCreateFolder}
+                className="ml-2 inline-flex items-center px-2 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-600 text-slate-200 border border-slate-600"
+              >
+                <Icon name="folder" className="w-3 h-3 mr-1" />
+                New Folder
+              </button>
+            </p>
+
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-200 flex-1 flex flex-col items-center justify-center ${
+                isDragging
+                  ? "border-teal-500 bg-slate-700/70"
+                  : "border-slate-600 hover:border-slate-500"
+              }`}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
+              <Icon
+                name="uploadDemo"
+                className="w-10 h-10 mx-auto text-slate-500 mb-3"
+              />
+              <p className="text-slate-400 mb-1">Drag & drop files here</p>
+              <p className="text-slate-500 text-xs mb-3">or</p>
+              <label
+                htmlFor="file-upload"
+                className="cursor-pointer bg-slate-800 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-md text-xs transition-colors duration-200"
+              >
+                Browse files
+              </label>
+              <input
+                id="file-upload"
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={onFileSelect}
+                ref={fileInputRef}
+              />
+
+              <p className="text-[11px] text-slate-500 mt-3">
+                Maximum file size: 50MB
+              </p>
+            </div>
+
+            {files.length > 0 && (
+              <div className="mt-4">
+                <h2 className="text-xs font-semibold text-slate-200 mb-2">
+                  Selected Files:
+                </h2>
+                <ul className="space-y-2 max-h-40 overflow-auto pr-1">
+                  {files.map((file, index) => (
+                    <li
+                      key={index}
+                      className="bg-slate-800 p-2 rounded-md flex items-center justify-between"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Icon
+                          name="invoices"
+                          className="w-4 h-4 text-slate-400 flex-shrink-0"
+                        />
+                        <span
+                          className="text-xs text-slate-300 truncate max-w-[140px]"
+                          title={file.name}
+                        >
+                          {file.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[10px] text-slate-400">
+                          {formatBytes(file.size)}
+                        </span>
+                        <button
+                          onClick={() => removeFile(file.name)}
+                          className="text-[10px] text-red-500 hover:text-red-400 font-semibold"
+                        >
+                          REMOVE
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex justify-end mt-3">
+                  <button
+                    onClick={handleUpload}
+                    className="flex items-center justify-center space-x-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 px-4 rounded-md text-xs transition-colors duration-200"
+                  >
+                    <Icon name="uploadDemo" className="w-4 h-4" />
+                    <span>Upload Files</span>
+                  </button>
                 </div>
-              )
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <Icon name="image" className="w-16 h-16 mb-2" />
-                <p className="font-semibold">No Preview Available</p>
-                {selectedTemplateName && (
-                  <p className="text-xs mt-1 text-slate-500">
-                    Selected: {selectedTemplateName}
-                  </p>
-                )}
               </div>
             )}
           </div>
+
+          {selectedTemplateName && (
+            <p className="mt-2 text-[11px] text-slate-500">
+              Selected template:{" "}
+              <span className="text-slate-300">{selectedTemplateName}</span>
+            </p>
+          )}
         </div>
+      </div>
+
+      {/* FILE MANAGER DƯỚI CÙNG */}
+      <div className="mt-8">
+        <FileManager
+          currentPath={currentPath}
+          onPathChange={setCurrentPath}
+          reloadKey={reloadKey}
+        />
       </div>
     </div>
   );
