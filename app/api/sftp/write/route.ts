@@ -4,31 +4,22 @@ import Client from "ssh2-sftp-client";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const url = new URL(req.url);
-  const mode = (url.searchParams.get("mode") as "demo" | "media") || "demo";
-
   try {
-    const { path, folderName } = await req.json();
+    const body = await req.json();
+    const path = typeof body.path === "string" ? body.path : "";
+    const content = typeof body.content === "string" ? body.content : "";
+    const mode = (body.mode as "demo" | "media") || "demo";
 
-    if (!folderName || typeof folderName !== "string") {
+    if (!path) {
       return NextResponse.json(
-        { success: false, error: "folderName is required" },
+        { success: false, error: "Missing path" },
         { status: 400 }
       );
     }
 
-    const basePath =
-      typeof path === "string" && path.trim() ? path.trim() : ".";
-
-    // Ghép đường dẫn thư mục mới
-    const normalizedBase = basePath.replace(/\/$/, ""); // bỏ dấu / cuối
-    const targetDir =
-      normalizedBase === "."
-        ? `./${folderName}`
-        : `${normalizedBase}/${folderName}`;
-
     const sftp = new Client();
 
+    // 🔧 chọn config SFTP theo mode
     const config =
       mode === "media"
         ? {
@@ -46,19 +37,17 @@ export async function POST(req: NextRequest) {
 
     await sftp.connect(config);
 
-    // Tạo thư mục (recursive = true cho chắc)
-    await sftp.mkdir(targetDir, true);
+    // ✍️ ghi file (content là string UTF-8)
+    const buffer = Buffer.from(content ?? "", "utf-8");
+    await sftp.put(buffer, path);
 
     await sftp.end();
 
-    return NextResponse.json({
-      success: true,
-      folderPath: targetDir,
-    });
+    return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("SFTP mkdir error:", err);
+    console.error("SFTP write error:", err);
     return NextResponse.json(
-      { success: false, error: err.message || String(err) },
+      { success: false, error: err.message || "Write failed" },
       { status: 500 }
     );
   }

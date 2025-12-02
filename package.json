@@ -9,8 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@types/next-auth": "^3.13.0",
+    "flowbite": "^4.0.1",
+    "flowbite-react": "^0.12.10",
     "marked": "^17.0.0",
+    "monaco-editor": "^0.55.1",
     "next": "15.5.5",
     "next-auth": "^4.24.11",
     "react": "19.1.0",

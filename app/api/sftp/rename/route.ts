@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Client from "ssh2-sftp-client";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const url = new URL(req.url);
+  const mode = (url.searchParams.get("mode") as "demo" | "media") || "demo";
+
   try {
     const body = await req.json();
     const path = typeof body.path === "string" ? body.path : ".";
@@ -26,12 +29,23 @@ export async function POST(req: Request) {
 
     const sftp = new Client();
 
-    await sftp.connect({
-      host: process.env.SFTP_HOST,
-      port: Number(process.env.SFTP_PORT),
-      username: process.env.SFTP_USER,
-      password: process.env.SFTP_PASS,
-    });
+    // 🔧 chọn config theo mode
+    const config =
+      mode === "media"
+        ? {
+            host: process.env.SFTP_media_HOST,
+            port: Number(process.env.SFTP_media_PORT),
+            username: process.env.SFTP_media_USER,
+            password: process.env.SFTP_media_PASS,
+          }
+        : {
+            host: process.env.SFTP_demo_HOST,
+            port: Number(process.env.SFTP_demo_PORT),
+            username: process.env.SFTP_demo_USER,
+            password: process.env.SFTP_demo_PASS,
+          };
+
+    await sftp.connect(config);
 
     const basePath = path && path !== "." ? path : ".";
 

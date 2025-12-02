@@ -1,6 +1,7 @@
 import "./globals.css";
 import React from "react";
 import LayoutShell from "./LayoutShell";
+import { SftpModeProvider } from "./contextAPI/contextmode";
 
 export const metadata = {
   title: "My App",
@@ -14,9 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-slate-900 text-slate-200">
-        <LayoutShell>{children}</LayoutShell>
-      </body>
+      <SftpModeProvider>
+        <body className="bg-slate-900 text-slate-200">
+          <LayoutShell>{children}</LayoutShell>
+        </body>
+      </SftpModeProvider>
     </html>
   );
 }

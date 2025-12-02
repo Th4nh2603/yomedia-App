@@ -4,6 +4,9 @@ import Client from "ssh2-sftp-client";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  const url = new URL(req.url);
+  const mode = url.searchParams.get("mode") || "demo";
+
   try {
     const formData = await req.formData();
 
@@ -25,35 +28,41 @@ export async function POST(req: Request) {
     }
 
     const sftp = new Client();
+    const config =
+      mode === "media"
+        ? {
+            host: process.env.SFTP_media_HOST,
+            port: Number(process.env.SFTP_media_PORT),
+            username: process.env.SFTP_media_USER,
+            password: process.env.SFTP_media_PASS,
+          }
+        : {
+            host: process.env.SFTP_demo_HOST,
+            port: Number(process.env.SFTP_demo_PORT),
+            username: process.env.SFTP_demo_USER,
+            password: process.env.SFTP_demo_PASS,
+          };
 
-    await sftp.connect({
-      host: process.env.SFTP_HOST,
-      port: Number(process.env.SFTP_PORT),
-      username: process.env.SFTP_USER,
-      password: process.env.SFTP_PASS,
-    });
+    await sftp.connect(config);
 
     const uploaded: string[] = [];
     const skippedExisting: string[] = [];
-
     for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
 
-      // ✅ file.name có thể là path: 480x270/abc.html
       const relativePath = file.name.replace(/\\/g, "/");
+      const safePath = relativePath.replace(/^\//, "");
 
       const remoteFilePath =
         targetPath === "."
-          ? `./${relativePath}`
-          : `${targetPath}/${relativePath}`;
+          ? `./${safePath}`
+          : `${targetPath.replace(/\/$/, "")}/${safePath}`;
 
-      // 🔥 Tạo folder trung gian (recursive)
       const dir = remoteFilePath.substring(0, remoteFilePath.lastIndexOf("/"));
       if (dir) {
         await sftp.mkdir(dir, true).catch(() => {});
       }
 
-      // ✅ Check tồn tại – nếu có thì bỏ qua
       const exists = await sftp.exists(remoteFilePath);
       if (exists) {
         skippedExisting.push(remoteFilePath);
