@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Icon from "../icons/Icons";
 import Editor from "@monaco-editor/react";
 import { useSftpMode } from "../contextAPI/contextmode";
-import { Toast } from "flowbite-react";
+import { useToast } from "../components/FlowbiteToast";
 
 const formatModifyTime = (value: number | string | undefined) => {
   if (value === undefined || value === null) return "-";
@@ -24,8 +24,10 @@ const formatModifyTime = (value: number | string | undefined) => {
 
 const getLanguageFromFile = (fileName: string) => {
   if (fileName.endsWith(".html")) return "html";
-  if (fileName.endsWith(".js")) return "javascript";
-  if (fileName.endsWith(".ts")) return "typescript";
+  if (fileName.endsWith(".js") || fileName.endsWith(".jsx"))
+    return "javascript";
+  if (fileName.endsWith(".ts") || fileName.endsWith(".tsx"))
+    return "typescript";
   if (fileName.endsWith(".css")) return "css";
   if (fileName.endsWith(".json")) return "json";
   return "plaintext";
@@ -52,7 +54,7 @@ type FileManagerProps = {
   reloadKey?: number;
 };
 
-const DEMO_ROOT = ".";
+const DEMO_ROOT = "";
 const MEDIA_ROOT = "media";
 
 const MODE_STYLES: Record<
@@ -64,29 +66,22 @@ const MODE_STYLES: Record<
     desc: string;
   }
 > = {
-  media: {
-    headerBadge: "bg-blue-500/10 border border-blue-500/40 text-blue-300",
-    pathBadge: "bg-blue-600 text-white",
-    folderIcon: "text-blue-300",
-    desc: "Demo scripts / môi trường test, có thể ghi đè thoải mái.",
-  },
   demo: {
     headerBadge:
       "bg-emerald-500/10 border border-emerald-500/40 text-emerald-300",
     pathBadge: "bg-emerald-600 text-white",
     folderIcon: "text-emerald-300",
+    desc: "Demo scripts / môi trường test, có thể ghi đè thoải mái.",
+  },
+  media: {
+    headerBadge: "bg-blue-500/10 border border-blue-500/40 text-blue-300",
+    pathBadge: "bg-blue-600 text-white",
+    folderIcon: "text-blue-300",
     desc: "Media assets (hình ảnh, video) chạy thật, cẩn thận khi sửa.",
   },
 };
 
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
-
-type ToastItem = {
-  id: string;
-  type: "success" | "error" | "info";
-  title?: string;
-  message: string;
-};
 
 const FileManager: React.FC<FileManagerProps> = ({
   currentPath,
@@ -103,60 +98,27 @@ const FileManager: React.FC<FileManagerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
   const { mode: sftpMode, setMode: setSftpMode } = useSftpMode();
   const styles = MODE_STYLES[sftpMode];
+  const { showToast } = useToast();
   const objectUrlRef = useRef<string | null>(null);
+  const displayPath =
+    sftpMode === "media"
+      ? (currentPath || "").replace(/^media\/?/, "") || ""
+      : currentPath || "";
 
-  // -- Toast helpers -------------------------------------------------------
-  const showToast = (
-    type: ToastItem["type"],
-    message: string,
-    title?: string
-  ) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const item: ToastItem = { id, type, message, title };
-    setToasts((prev) => [...prev, item]);
-
-    // auto remove after 3.5s
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
-  };
-  // Thêm định nghĩa kiểu cho từng loại toast
-  const TOAST_STYLES: Record<
-    ToastItem["type"],
-    {
-      bg: string;
-      text: string;
-      icon: string;
-      iconBg: string;
-      // Có thể thêm icon component nếu bạn dùng thư viện icon
-    }
-  > = {
-    success: {
-      bg: "bg-emerald-200 dark:bg-emerald-800",
-      text: "text-emerald-900 dark:text-emerald-100",
-      icon: "✓", // hoặc dùng Icon name nếu có
-      iconBg: "bg-white/10 text-emerald-400",
-    },
-    error: {
-      bg: "bg-red-200 dark:bg-red-800",
-      text: "text-red-900 dark:text-red-100",
-      icon: "!",
-      iconBg: "bg-white/10 text-red-400",
-    },
-    info: {
-      bg: "bg-blue-200 dark:bg-blue-800",
-      text: "text-blue-900 dark:text-blue-100",
-      icon: "i",
-      iconBg: "bg-white/10 text-blue-400",
-    },
-  };
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-  // -----------------------------------------------------------------------
+  // cleanup objectUrl on unmount
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        try {
+          URL.revokeObjectURL(objectUrlRef.current);
+        } catch {}
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const loadFiles = async (path: string, mode?: "demo" | "media") => {
     setIsLoading(true);
@@ -165,21 +127,43 @@ const FileManager: React.FC<FileManagerProps> = ({
       const res = await fetch(
         `/api/sftp/list?path=${encodeURIComponent(path)}&mode=${effectiveMode}`
       );
+      if (!res.ok) {
+        const text = await res.text();
+        showToast?.({
+          type: "error",
+          title: "Lỗi",
+          message: `Không thể load file: ${text || res.statusText}`,
+          duration: 4000,
+        });
+        setFiles([]);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setFiles(sortFiles(data.files));
         onPathChange?.(path);
       } else {
-        showToast("error", data.error || "Không thể load file");
+        setFiles([]);
+        showToast?.({
+          type: "error",
+          title: "Lỗi",
+          message: data.error || "Không thể load file",
+          duration: 4000,
+        });
       }
     } catch (err: any) {
       console.error(err);
-      showToast("error", err.message || "Lỗi khi load file");
+      showToast?.({
+        type: "error",
+        title: "Lỗi",
+        message: err.message || "Lỗi khi load file",
+        duration: 4000,
+      });
+      setFiles([]);
     } finally {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
     loadFiles(currentPath, sftpMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,7 +177,9 @@ const FileManager: React.FC<FileManagerProps> = ({
   // preview bằng URL trực tiếp (không fetch JSON)
   const handlePreview = (fileName: string) => {
     if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
+      try {
+        URL.revokeObjectURL(objectUrlRef.current);
+      } catch {}
       objectUrlRef.current = null;
       setObjectUrl(null);
     }
@@ -212,17 +198,32 @@ const FileManager: React.FC<FileManagerProps> = ({
     newName = newName.trim();
 
     if (isDir && newName.includes(".")) {
-      showToast("error", "Folder không thể chứa dấu chấm (.) trong tên.");
+      showToast?.({
+        type: "error",
+        title: "Tên không hợp lệ",
+        message: "Folder không thể chứa dấu chấm (.) trong tên.",
+        duration: 3500,
+      });
       return;
     }
 
     if (!isDir && (newName.startsWith(".") || newName.endsWith("."))) {
-      showToast("error", "Tên file không hợp lệ.");
+      showToast?.({
+        type: "error",
+        title: "Tên không hợp lệ",
+        message: "Tên file không hợp lệ.",
+        duration: 3500,
+      });
       return;
     }
 
     if (!newName) {
-      showToast("error", "Tên không được để trống.");
+      showToast?.({
+        type: "error",
+        title: "Tên rỗng",
+        message: "Tên không được để trống.",
+        duration: 3500,
+      });
       return;
     }
 
@@ -239,20 +240,35 @@ const FileManager: React.FC<FileManagerProps> = ({
 
       const data = await res.json();
       if (!data.success) {
-        showToast("error", "Rename lỗi: " + (data.error || "Unknown"));
+        showToast?.({
+          type: "error",
+          title: "Rename lỗi",
+          message: data.error || "Unknown",
+          duration: 3500,
+        });
         return;
       }
 
-      showToast("success", `Đổi tên thành công: ${itemName} → ${newName}`);
+      showToast?.({
+        type: "success",
+        title: "Đổi tên",
+        message: `${itemName} → ${newName}`,
+        duration: 3000,
+      });
       await loadFiles(currentPath);
     } catch (err: any) {
-      showToast("error", "Có lỗi khi rename: " + err.message);
+      showToast?.({
+        type: "error",
+        title: "Lỗi",
+        message: err.message || "Có lỗi khi rename",
+        duration: 3500,
+      });
     }
   };
 
   const handleGoBack = () => {
     if (
-      currentPath === "." ||
+      currentPath === "" ||
       currentPath === DEMO_ROOT ||
       currentPath === MEDIA_ROOT
     )
@@ -264,12 +280,34 @@ const FileManager: React.FC<FileManagerProps> = ({
   };
 
   const handleCopyPath = async () => {
+    let pathToCopy = currentPath || "";
+
+    if (sftpMode === "media") {
+      // nếu đúng root "media" thì để rỗng
+      if (pathToCopy === "media" || pathToCopy === "media/") {
+        pathToCopy = "";
+      } else {
+        // các trường hợp khác: media/2020/02 -> 2020/02
+        pathToCopy = pathToCopy.replace(/^media\//, "");
+      }
+    }
+
     try {
-      await navigator.clipboard.writeText(currentPath);
-      showToast("success", "Đã copy path: " + currentPath);
+      await navigator.clipboard.writeText(pathToCopy);
+      showToast?.({
+        type: "success",
+        title: "Copied",
+        message: `Đã copy: ${pathToCopy || "(root)"}`,
+        duration: 3500,
+      });
     } catch (err: any) {
       console.error("Copy failed:", err);
-      showToast("error", "Không thể copy path");
+      showToast?.({
+        type: "error",
+        title: "Không thể copy",
+        message: err?.message || "Copy thất bại",
+        duration: 3500,
+      });
     }
   };
 
@@ -297,10 +335,20 @@ const FileManager: React.FC<FileManagerProps> = ({
         setPreviewFile(fileName);
         setPreviewContent(data.content ?? "");
       } else {
-        showToast("error", "Lỗi: " + (data.error || "Không đọc được file"));
+        showToast?.({
+          type: "error",
+          title: "Lỗi",
+          message: data.error || "Không đọc được file",
+          duration: 3500,
+        });
       }
     } catch (err: any) {
-      showToast("error", "Không thể đọc file: " + err.message);
+      showToast?.({
+        type: "error",
+        title: "Lỗi",
+        message: err.message || "Không thể đọc file",
+        duration: 3500,
+      });
     }
   };
 
@@ -349,16 +397,30 @@ const FileManager: React.FC<FileManagerProps> = ({
 
       const data = await res.json();
       if (!data.success) {
-        showToast("error", "Lưu file lỗi: " + (data.error || "Unknown"));
+        showToast?.({
+          type: "error",
+          title: "Lưu lỗi",
+          message: data.error || "Unknown",
+          duration: 3500,
+        });
         return;
       }
 
-      // Thành công → reload danh sách, đóng modal edit, show toast
       await loadFiles(currentPath);
       closePreview();
-      showToast("success", "Đã lưu file thành công");
+      showToast?.({
+        type: "success",
+        title: "Đã lưu",
+        message: `${previewFile} đã được lưu`,
+        duration: 3000,
+      });
     } catch (err: any) {
-      showToast("error", "Có lỗi khi lưu file: " + err.message);
+      showToast?.({
+        type: "error",
+        title: "Lỗi",
+        message: err.message || "Có lỗi khi lưu file",
+        duration: 3500,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -372,7 +434,9 @@ const FileManager: React.FC<FileManagerProps> = ({
   const closeImagePreview = () => {
     setPreviewImage(null);
     if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
+      try {
+        URL.revokeObjectURL(objectUrlRef.current);
+      } catch {}
       objectUrlRef.current = null;
       setObjectUrl(null);
     }
@@ -380,52 +444,6 @@ const FileManager: React.FC<FileManagerProps> = ({
 
   return (
     <div className="bg-slate-800 rounded-lg shadow-lg p-6 mt-8">
-      {/* Toast container (top-right) */}
-      /* CODE MỚI */
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
-        {toasts.map((t) => {
-          const toastStyle = TOAST_STYLES[t.type];
-
-          return (
-            <div key={t.id} className="min-w-[240px]">
-              <Toast
-                className={`${toastStyle.bg} border-l-4 ${
-                  t.type === "error"
-                    ? "border-red-500"
-                    : t.type === "success"
-                    ? "border-emerald-500"
-                    : "border-blue-500"
-                }`}
-              >
-                {/* Icon */}
-                <div
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${toastStyle.iconBg}`}
-                >
-                  <span className="font-bold">{toastStyle.icon}</span>
-                </div>
-
-                {/* Nội dung */}
-                <div className={`ml-3 text-sm font-normal ${toastStyle.text}`}>
-                  {t.title ? (
-                    <div className="font-semibold">{t.title}</div>
-                  ) : null}
-                  <div>{t.message}</div>
-                </div>
-
-                {/* Nút đóng */}
-                <div className="ml-auto">
-                  <button
-                    onClick={() => removeToast(t.id)}
-                    className={`${toastStyle.text} opacity-70 hover:opacity-100 px-2`}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </Toast>
-            </div>
-          );
-        })}
-      </div>
       {/* HEADER: SFTP + MODE + PATH */}
       <div className="flex items-center justify-between mb-5 gap-4">
         {/* LEFT: SFTP + mode badge */}
@@ -446,6 +464,7 @@ const FileManager: React.FC<FileManagerProps> = ({
                     ? "bg-emerald-600 text-white shadow"
                     : "text-slate-400 hover:text-white"
                 }`}
+                aria-label="Switch to demo"
               >
                 DEMO
               </button>
@@ -459,6 +478,7 @@ const FileManager: React.FC<FileManagerProps> = ({
                     ? "bg-blue-600 text-white shadow"
                     : "text-slate-400 hover:text-white"
                 }`}
+                aria-label="Switch to media"
               >
                 MEDIA
               </button>
@@ -484,6 +504,7 @@ const FileManager: React.FC<FileManagerProps> = ({
                 onClick={handleGoBack}
                 className="px-3 py-1.5 text-xs rounded-md 
                   bg-slate-700 hover:bg-slate-600 text-white transition"
+                aria-label="Go back"
               >
                 ⬅ Back
               </button>
@@ -496,14 +517,18 @@ const FileManager: React.FC<FileManagerProps> = ({
               {sftpMode.toUpperCase()}
             </span>
             <span className="text-yellow-400">📁</span>
-            <span className="text-sm text-slate-200 truncate flex-1">
-              {currentPath}
+            <span
+              className="text-sm text-slate-200 truncate flex-1"
+              title={currentPath}
+            >
+              {displayPath || "."}
             </span>
 
             <button
               onClick={handleCopyPath}
               className="ml-1 p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition shrink-0"
               title="Copy path"
+              aria-label="Copy path"
             >
               📋
             </button>
@@ -583,6 +608,7 @@ const FileManager: React.FC<FileManagerProps> = ({
                         );
                       }}
                       className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                      aria-label={`Actions for ${item.name}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -643,6 +669,7 @@ const FileManager: React.FC<FileManagerProps> = ({
               <button
                 onClick={closePreview}
                 className="text-slate-400 hover:text-white text-lg"
+                aria-label="Close editor"
               >
                 ✕
               </button>

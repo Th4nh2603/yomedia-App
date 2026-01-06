@@ -14,6 +14,7 @@ import {
   AD_FORMAT_OPTIONS,
 } from "../data/data";
 import FileManager from "./FileManager";
+import ToastProvider from "../components/FlowbiteToast";
 import { useSftpMode } from "../contextAPI/contextmode";
 type TemplateOption = {
   name: string;
@@ -889,13 +890,15 @@ const BuildDemo: React.FC = () => {
       </div>
 
       {/* FILE MANAGER DƯỚI CÙNG */}
-      <div className="mt-8">
-        <FileManager
-          currentPath={currentPath}
-          onPathChange={setCurrentPath}
-          reloadKey={reloadKey}
-        />
-      </div>
+      <ToastProvider>
+        <div className="mt-8">
+          <FileManager
+            currentPath={currentPath}
+            onPathChange={setCurrentPath}
+            reloadKey={reloadKey}
+          />
+        </div>
+      </ToastProvider>
     </div>
   );
 };
